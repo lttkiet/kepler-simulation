@@ -452,8 +452,6 @@ function refreshScene(announce = true) {
   const starBVector = new THREE.Vector3(state.sunB.x * MODEL.visualScale, 0.38, -state.sunB.y * MODEL.visualScale);
   starALight.position.copy(starAVector);
   starBLight.position.copy(starBVector);
-  starALight.target.position.copy(planet.group.position);
-  starBLight.target.position.copy(planet.group.position);
 
   const upA = state.altitudeA > 0;
   const upB = state.altitudeB > 0;
