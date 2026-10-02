@@ -113,8 +113,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 .sky-orb-b { width: 6px; height: 6px; margin: -2px 0 0 -2px; background: var(--red); box-shadow: 0 0 8px rgba(240,139,113,.6); }
 .moon-section { padding-bottom: 17px; }
 .moon-readout { display: flex; align-items: center; gap: 16px; margin-top: 14px; }
-.moon-preview { position: relative; flex: 0 0 42px; width: 42px; height: 42px; overflow: hidden; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #626676, #262a35 75%); box-shadow: inset -7px -4px 11px rgba(0,0,0,.45), 0 0 18px rgba(196,203,226,.07); }
-.moon-disc { position: absolute; inset: -1px; border-radius: 50%; background: radial-gradient(circle at 40% 40%, #e4e3dc 0, #b8bbc4 65%, #7c8393 100%); clip-path: ellipse(var(--phase-width, 50%) 50% at var(--phase-x, 50%) 50%); opacity: .9; }
+.moon-preview { position: relative; flex: 0 0 42px; width: 42px; height: 42px; overflow: hidden; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #353946, #1b1e27 75%); box-shadow: inset -7px -4px 11px rgba(0,0,0,.45), 0 0 18px rgba(196,203,226,.07); }
+.moon-preview canvas { display: block; width: 100%; height: 100%; }
 .moon-details { display: grid; gap: 4px; }
 .moon-percent { color: #e2e3e4; font-family: var(--mono); font-size: 18px; font-variant-numeric: tabular-nums; letter-spacing: -.04em; }
 .moon-subtitle { color: #7d8596; font-size: 7px; letter-spacing: .08em; }

@@ -41,6 +41,7 @@ typedef struct {
     double obliquity_deg;
     double pole_angle_deg;
     double rotation_phase_deg;
+    bool rotation_phase_was_set;
     double planet_periapsis_day;
     double binary_periapsis_day;
     double moon_period_days;
@@ -300,6 +301,30 @@ static void positions_at_time(
     };
 }
 
+static double epoch_midnight_phase_deg(const Options *options)
+{
+    Vec2 planet_position;
+    Vec2 planet_velocity;
+    Vec2 star_a_position;
+    Vec2 star_a_velocity;
+    Vec2 star_b_position;
+    Vec2 star_b_velocity;
+    double pole_angle = degrees_to_radians(options->pole_angle_deg);
+    double obliquity = degrees_to_radians(options->obliquity_deg);
+    double dx;
+    double dy;
+
+    positions_at_time(0.0, options, &planet_position, &planet_velocity,
+        &star_a_position, &star_a_velocity, &star_b_position, &star_b_velocity);
+    dx = star_a_position.x - planet_position.x;
+    dy = star_a_position.y - planet_position.y;
+
+    /* Set local midnight opposite the large sun at epoch zero, as in the web view. */
+    return radians_to_degrees(normalize_radians(
+        atan2(cos(obliquity) * (dy * cos(pole_angle) - dx * sin(pole_angle)),
+            dx * cos(pole_angle) + dy * sin(pole_angle)) + PI));
+}
+
 static const char *lighting_state(double altitude_a, double altitude_b)
 {
     bool a_up = altitude_a > 0.0;
@@ -419,7 +444,6 @@ static void print_row(double day, double hour, const Options *options)
     double barycenter_day_hours;
     double separation_deg;
     double year_phase = fmod(time_day, PLANET_ORBIT.period_days);
-    double planet_longitude;
     double moon_longitude;
     double moon_distance_au = MOON_DISTANCE_KM / KM_PER_AU;
     double moon_angular_diameter_deg;
@@ -431,6 +455,8 @@ static void print_row(double day, double hour, const Options *options)
     double moon_star_b_illumination;
     bool star_a_up;
     bool star_b_up;
+    Orbit planet_orbit = PLANET_ORBIT;
+    OrbitalState epoch_planet_state;
 
     if (year_phase < 0.0) {
         year_phase += PLANET_ORBIT.period_days;
@@ -451,10 +477,12 @@ static void print_row(double day, double hour, const Options *options)
     separation_deg = radians_to_degrees(acos(clamp(
         dot(star_a.direction, star_b.direction), -1.0, 1.0)));
 
-    /* Moon follows a circular, coplanar orbit at the specified mean distance. */
-    planet_longitude = atan2(planet_position.y, planet_position.x);
+    /* The moon's inertial orbital phase advances independently of the planet orbit. */
+    planet_orbit.periapsis_day = options->planet_periapsis_day;
+    epoch_planet_state = orbital_state(&planet_orbit, 0.0);
     moon_longitude = normalize_radians(
-        planet_longitude + TWO_PI * time_day / options->moon_period_days);
+        atan2(epoch_planet_state.position.y, epoch_planet_state.position.x)
+            + TWO_PI * time_day / options->moon_period_days);
     moon_position = (Vec3){
         planet_position.x + moon_distance_au * cos(moon_longitude),
         planet_position.y + moon_distance_au * sin(moon_longitude),
@@ -539,7 +567,7 @@ static void print_usage(FILE *stream, const char *program)
         "  --rotation-hours HOURS        Sidereal spin period (default: 23.93447)\n"
         "  --obliquity-deg DEG           Axial tilt (default: 23.44)\n"
         "  --pole-angle-deg DEG          Seasonal orientation in orbital plane (default: 0)\n"
-        "  --rotation-phase-deg DEG      Spin phase at day 0 (default: 0)\n"
+        "  --rotation-phase-deg DEG      Spin phase at day 0 (default: epoch midnight)\n"
         "  --planet-periastron-day DAY   Planet periapsis epoch (default: 34.3586873)\n"
         "  --binary-periastron-day DAY   Binary orbit phase reference (default: 0)\n"
         "  --moon-period-days DAYS       Moon orbital period (default: 40.5)\n"
@@ -589,6 +617,7 @@ static bool parse_options(int argc, char **argv, Options *options)
         .obliquity_deg = 23.44,
         .pole_angle_deg = 0.0,
         .rotation_phase_deg = 0.0,
+        .rotation_phase_was_set = false,
         .planet_periapsis_day = 34.3586873,
         .binary_periapsis_day = 0.0,
         .moon_period_days = MOON_PERIOD_DAYS,
@@ -651,6 +680,7 @@ static bool parse_options(int argc, char **argv, Options *options)
             if (!read_option_value(argc, argv, &index, arg, &options->rotation_phase_deg)) {
                 return false;
             }
+            options->rotation_phase_was_set = true;
         } else if (strcmp(arg, "--planet-periastron-day") == 0) {
             if (!read_option_value(argc, argv, &index, arg,
                     &options->planet_periapsis_day)) {
@@ -719,6 +749,9 @@ static bool parse_options(int argc, char **argv, Options *options)
     if (options->moon_period_days <= 0.0) {
         fputs("Moon orbital period must be greater than 0 days.\n", stderr);
         return false;
+    }
+    if (!options->rotation_phase_was_set) {
+        options->rotation_phase_deg = epoch_midnight_phase_deg(options);
     }
     if (options->latitude_deg < -90.0 || options->latitude_deg > 90.0) {
         fputs("--latitude must be between -90 and 90 degrees.\n", stderr);

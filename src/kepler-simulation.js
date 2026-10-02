@@ -50,7 +50,8 @@ const ui = {
   phaseLabel: document.querySelector('#phase-label'),
   moonPercent: document.querySelector('#moon-percent'),
   moonPhaseName: document.querySelector('#moon-phase-name'),
-  moonPreview: document.querySelector('#moon-preview'),
+  moonEclipse: document.querySelector('#moon-eclipse'),
+  moonCanvas: document.querySelector('#moon-phase-canvas'),
   loading: document.querySelector('#loading-state'),
   labels: {
     starA: document.querySelector('#label-large'),
@@ -147,8 +148,8 @@ systemGroup.add(unitsLine);
 let timeDays = 0;
 let isPlaying = false;
 let lastFrame = 0;
-let frameHandle = 0;
 let lastReadout = 0;
+let moonPhaseRenderKey = -1;
 
 function positiveAngle(angle) {
   return ((angle % TAU) + TAU) % TAU;
@@ -176,6 +177,11 @@ function orbitPosition(period, semiMajorAxis, eccentricity, omega, periapsis, ti
   const theta = trueAnomaly + omega;
   return { x: radius * Math.cos(theta), y: radius * Math.sin(theta) };
 }
+
+const EPOCH_PLANET_POSITION = orbitPosition(
+  MODEL.year, MODEL.planetA, MODEL.planetE, MODEL.planetOmega, MODEL.planetPeriapsis, 0
+);
+const EPOCH_PLANET_ANGLE = Math.atan2(EPOCH_PLANET_POSITION.y, EPOCH_PLANET_POSITION.x);
 
 function makeOrbit(period, semiMajorAxis, eccentricity, omega, periapsis, material) {
   const samples = Array.from({ length: 801 }, (_, index) => {
@@ -341,13 +347,51 @@ function dot(left, right) {
   return left.x * right.x + left.y * right.y + left.z * right.z;
 }
 
+function occultedStarFraction(moonPosition, planetPosition, starPosition, starRadiusAu) {
+  const toPlanet = {
+    x: planetPosition.x - moonPosition.x,
+    y: planetPosition.y - moonPosition.y
+  };
+  const toStar = { x: starPosition.x - moonPosition.x, y: starPosition.y - moonPosition.y };
+  const planetDistance = Math.hypot(toPlanet.x, toPlanet.y);
+  const starDistance = Math.hypot(toStar.x, toStar.y);
+  if (planetDistance >= starDistance) return 0;
+
+  const planetRadius = Math.asin(THREE.MathUtils.clamp((6371 / MODEL.auKm) / planetDistance, 0, 1));
+  const starRadius = Math.asin(THREE.MathUtils.clamp(starRadiusAu / starDistance, 0, 1));
+  const cosine = THREE.MathUtils.clamp(
+    (toPlanet.x * toStar.x + toPlanet.y * toStar.y) / (planetDistance * starDistance), -1, 1
+  );
+  const separation = Math.acos(cosine);
+  if (separation >= planetRadius + starRadius) return 0;
+  if (separation + starRadius <= planetRadius) return 1;
+  if (separation + planetRadius <= starRadius) return (planetRadius / starRadius) ** 2;
+
+  const first = Math.acos(THREE.MathUtils.clamp(
+    (separation * separation + starRadius * starRadius - planetRadius * planetRadius)
+      / (2 * separation * starRadius), -1, 1
+  ));
+  const second = Math.acos(THREE.MathUtils.clamp(
+    (separation * separation + planetRadius * planetRadius - starRadius * starRadius)
+      / (2 * separation * planetRadius), -1, 1
+  ));
+  const overlap = starRadius * starRadius * first + planetRadius * planetRadius * second
+    - 0.5 * Math.sqrt(Math.max(0,
+      (-separation + starRadius + planetRadius)
+      * (separation + starRadius - planetRadius)
+      * (separation - starRadius + planetRadius)
+      * (separation + starRadius + planetRadius)));
+  return THREE.MathUtils.clamp(overlap / (Math.PI * starRadius * starRadius), 0, 1);
+}
+
 function getSystemState(time) {
   const planetPosition = orbitPosition(MODEL.year, MODEL.planetA, MODEL.planetE, MODEL.planetOmega, MODEL.planetPeriapsis, time);
   const binaryPosition = orbitPosition(MODEL.binaryPeriod, MODEL.binaryA, MODEL.binaryE, MODEL.binaryOmega, 0, time);
   const sunA = { x: -massB * binaryPosition.x, y: -massB * binaryPosition.y };
   const sunB = { x: massA * binaryPosition.x, y: massA * binaryPosition.y };
   const planetAngle = Math.atan2(planetPosition.y, planetPosition.x);
-  const moonAngle = positiveAngle(planetAngle + TAU * time / MODEL.moonPeriod);
+  const moonAngle = positiveAngle(EPOCH_PLANET_ANGLE + TAU * time / MODEL.moonPeriod);
+  const moonRelativeAngle = positiveAngle(moonAngle - planetAngle);
   const moonDistanceAu = MODEL.moonDistanceKm / MODEL.auKm;
   const moonPosition = {
     x: planetPosition.x + moonDistanceAu * Math.cos(moonAngle),
@@ -373,8 +417,12 @@ function getSystemState(time) {
   const fromMoonToB = unit({ x: sunB.x - moonPosition.x, y: sunB.y - moonPosition.y, z: 0 });
   const phaseA = THREE.MathUtils.clamp((1 + dot(fromMoonToPlanet, fromMoonToA)) / 2, 0, 1);
   const phaseB = THREE.MathUtils.clamp((1 + dot(fromMoonToPlanet, fromMoonToB)) / 2, 0, 1);
-  const illumination = (phaseA + phaseB) / 2;
-  return { planetPosition, sunA, sunB, moonPosition, moonAngle, spin, altitudeA, altitudeB, illumination, phaseA, phaseB };
+  const eclipseA = occultedStarFraction(moonPosition, planetPosition, sunA, MODEL.starARadiusAu);
+  const eclipseB = occultedStarFraction(moonPosition, planetPosition, sunB, MODEL.starBRadiusAu);
+  const illumination = (phaseA * (1 - eclipseA) + phaseB * (1 - eclipseB)) / 2;
+  const eclipse = eclipseA > 0.01 || eclipseB > 0.01;
+  const totalEclipse = eclipseA > 0.99 && eclipseB > 0.99;
+  return { planetPosition, sunA, sunB, moonPosition, moonAngle, moonRelativeAngle, spin, altitudeA, altitudeB, illumination, phaseA, phaseB, eclipseA, eclipseB, eclipse, totalEclipse };
 }
 
 function formatTime(hours) {
@@ -406,12 +454,50 @@ function updateSliderProgress(input) {
   input.style.setProperty('--progress', `${THREE.MathUtils.clamp(percent, 0, 100)}%`);
 }
 
-function phaseName(fraction) {
+function phaseName(fraction, state) {
+  if (state.totalEclipse) return 'TOTAL ECLIPSE';
+  if (state.eclipse) return 'ECLIPSE';
   if (fraction < 0.035) return 'NEW MOON';
   if (fraction > 0.965) return 'FULL MOON';
   if (fraction < 0.47) return 'CRESCENT';
   if (fraction < 0.53) return 'QUARTER';
   return 'GIBBOUS';
+}
+
+function drawMoonPhase(fraction) {
+  const key = Math.round(fraction * 200);
+  if (key === moonPhaseRenderKey) return;
+  moonPhaseRenderKey = key;
+
+  const canvas = ui.moonCanvas;
+  const context = canvas.getContext('2d');
+  const size = canvas.width;
+  const center = size / 2;
+  const radius = center - 2;
+  const cosine = THREE.MathUtils.clamp(2 * fraction - 1, -1, 1);
+  const sine = Math.sqrt(Math.max(0, 1 - cosine * cosine));
+  const pixels = context.createImageData(size, size);
+
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const nx = (x + 0.5 - center) / radius;
+      const ny = (y + 0.5 - center) / radius;
+      const disk = nx * nx + ny * ny;
+      if (disk > 1) continue;
+
+      const nz = Math.sqrt(1 - disk);
+      const light = nx * sine + nz * cosine;
+      const index = (y * size + x) * 4;
+      const edgeShade = Math.max(0, nz);
+      const shade = light > 0 ? 86 + 145 * Math.max(0, light) * (0.72 + 0.28 * edgeShade) : 37;
+      pixels.data[index] = shade;
+      pixels.data[index + 1] = shade + (light > 0 ? 2 : 1);
+      pixels.data[index + 2] = shade + (light > 0 ? 10 : 8);
+      pixels.data[index + 3] = 255;
+    }
+  }
+  context.clearRect(0, 0, size, size);
+  context.putImageData(pixels, 0, 0);
 }
 
 function setAltitudeTrack(element, altitude) {
@@ -445,7 +531,7 @@ function refreshScene(announce = true) {
   setWorldPosition(starB, state.sunB, 0.38);
   setWorldPosition(planet.group, state.planetPosition, 0);
   const moonVisualRadius = 1.78;
-  moon.position.set(Math.cos(state.moonAngle) * moonVisualRadius, 0, -Math.sin(state.moonAngle) * moonVisualRadius);
+  moon.position.set(Math.cos(state.moonRelativeAngle) * moonVisualRadius, 0, -Math.sin(state.moonRelativeAngle) * moonVisualRadius);
   planet.spinGroup.rotation.y = state.spin;
   const starAVector = new THREE.Vector3(state.sunA.x * MODEL.visualScale, 0.52, -state.sunA.y * MODEL.visualScale);
   const starBVector = new THREE.Vector3(state.sunB.x * MODEL.visualScale, 0.38, -state.sunB.y * MODEL.visualScale);
@@ -485,11 +571,9 @@ function refreshScene(announce = true) {
 
   const moonPercent = Math.round(state.illumination * 100);
   ui.moonPercent.textContent = `${moonPercent}%`;
-  ui.moonPhaseName.textContent = phaseName(state.illumination);
-  const terminator = Math.abs(2 * state.illumination - 1) * 100;
-  ui.moonPreview.style.setProperty('--phase-width', `${Math.max(6, terminator)}%`);
-  ui.moonPreview.style.setProperty('--phase-x', state.illumination > 0.5 ? '35%' : '65%');
-  ui.moonPreview.dataset.illumination = String(state.illumination);
+  ui.moonPhaseName.textContent = phaseName(state.illumination, state);
+  ui.moonEclipse.textContent = state.totalEclipse ? 'TOTAL' : state.eclipse ? 'PARTIAL' : 'NONE';
+  drawMoonPhase(state.illumination);
 
   if (announce) {
     ui.dayReadout.setAttribute('aria-label', `Day ${Math.floor(day)} of year ${year}`);
@@ -513,7 +597,7 @@ function placeLabel(element, object, offsetX = 0, offsetY = -16) {
 }
 
 function renderFrame(timestamp) {
-  frameHandle = requestAnimationFrame(renderFrame);
+  requestAnimationFrame(renderFrame);
   const delta = lastFrame ? Math.min(0.1, (timestamp - lastFrame) / 1000) : 0;
   lastFrame = timestamp;
   if (isPlaying && delta > 0) setTime(timeDays + delta * Number(ui.speed.value) / 24);
@@ -578,4 +662,4 @@ window.addEventListener('keydown', (event) => {
 updateRendererSize();
 setTime(0);
 ui.loading.classList.add('hidden');
-frameHandle = requestAnimationFrame(renderFrame);
+requestAnimationFrame(renderFrame);

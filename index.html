@@ -131,16 +131,17 @@
         <section class="moon-section">
           <div class="section-heading"><span>MOON PHASE</span><span id="moon-phase-name">—</span></div>
           <div class="moon-readout">
-            <div class="moon-preview" id="moon-preview" aria-hidden="true"><div class="moon-disc"></div></div>
-            <div class="moon-details"><span class="moon-percent" id="moon-percent">—</span><span class="moon-subtitle">ILLUMINATED BY BOTH SUNS</span></div>
+            <div class="moon-preview" id="moon-preview" aria-hidden="true"><canvas id="moon-phase-canvas" width="128" height="128"></canvas></div>
+            <div class="moon-details"><span class="moon-percent" id="moon-percent">—</span><span class="moon-subtitle">VISIBLE LIGHT ESTIMATE</span></div>
           </div>
           <div class="moon-meta"><span>ORBITAL PERIOD</span><b>40.5 DAYS*</b></div>
           <div class="moon-meta"><span>MEAN DISTANCE</span><b>499,720 KM</b></div>
+          <div class="moon-meta"><span>PLANETARY SHADOW</span><b id="moon-eclipse">NONE</b></div>
         </section>
 
         <section class="model-note">
           <span class="note-mark">i</span>
-          <p>Orbits follow Keplerian reference elements. Body sizes and the moon's local orbit are enlarged for visibility.</p>
+          <p>3D rendering of coplanar Keplerian orbits. Body sizes and the moon's local orbit are enlarged for visibility.</p>
         </section>
         <footer class="rail-footer"><span>* PROVISIONAL MOON PERIOD</span><a href="./docs/tracker.md">MODEL NOTES <span aria-hidden="true">↗</span></a></footer>
       </aside>

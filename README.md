@@ -22,8 +22,9 @@ The `Deploy to GitHub Pages` workflow publishes the project root when changes ar
 
 - The central system follows Kepler-16 reference masses, radii, binary period, and orbital elements. The solid planet uses the reference 228.776-day circumbinary orbit; it does not represent gas giant Kepler-16b itself.
 - The planet has an Earth radius, an Earthlike 23.9344696-hour sidereal rotation, and a 23.44-degree axial tilt. The equatorial daylight panel reports geometric sun altitudes.
-- One Moon-radius satellite orbits at a mean center-to-center distance of 499,720 km. Its 40.5-day period is provisional because the terrestrial planet's mass has not been set.
+- One Moon-radius satellite orbits at a mean center-to-center distance of 499,720 km. Its 40.5-day period is provisional because the terrestrial planet's mass has not been set. The moon starts on the outward radial line at epoch zero, then advances at a constant inertial angular rate.
 - Epoch zero uses the large sun → small sun → planet → moon alignment. Planet spin and the stellar and lunar orbits continue across year boundaries; selecting year 1 does not reset the sky.
-- Orbital positions use independent two-body Keplerian ellipses in one plane. The visualization is not a climate model or full N-body simulation. Body sizes and the moon's local orbit are enlarged so they remain visible at system scale.
+- Orbital positions use independent two-body Keplerian ellipses in one plane. The visualization is a 3D rendering of this coplanar model, not a climate model or full N-body simulation. Body sizes and the moon's local orbit are enlarged so they remain visible at system scale.
+- Lunar illumination is an equal-weight geometric estimate for the two stars, reduced by planetary shadowing. The preview renders that estimate as a single equivalent light source because the fictional system has no specified stellar luminosities.
 
 The accompanying C tracker can calculate more detailed instantaneous geometry and CSV tracks; see [`docs/tracker.md`](docs/tracker.md).

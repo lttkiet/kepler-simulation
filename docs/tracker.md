@@ -48,8 +48,9 @@ Output is CSV. Fields include solar altitude and separation, apparent solar-day 
 
 - The solid target planet has Earth's radius. Its mass is unset; the moon's default 40.5-day period is a provisional estimate based on Earth and Moon masses.
 - The moon is Moon-radius and orbits at 499,720 km mean distance.
-- The default epoch aligns large sun → small sun → planet → moon. Continuous elapsed days preserve rotation and binary phase across planetary years.
+- The default epoch aligns large sun → small sun → planet → moon, with the equatorial local clock at midnight. The C tracker's default spin phase matches the browser view; continuous elapsed days preserve rotation and binary phase across planetary years.
+- The moon starts on the outward radial line at epoch zero and then advances in the inertial orbital plane. Its position does not inherit the planet's changing longitude.
 - Orbits are independent Keplerian ellipses in one plane. This is a day/night approximation, not N-body dynamics, climate, tides, or a habitability model.
-- Lunar illumination uses equal weight for both stars because stellar luminosities for this fictional target are not specified.
+- Lunar illumination uses equal weight for both stars because stellar luminosities for this fictional target are not specified. The C tracker reports geometric illumination and eclipse flags separately; the browser estimate reduces visible illumination by modeled planetary shadowing and shows its equivalent single-source geometry.
 
 Run `build/kepler16-daynight-tracker --help` for supported arguments.
