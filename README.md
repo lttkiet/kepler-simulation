@@ -12,7 +12,7 @@ python3 -m http.server 8000
 
 Then open <http://localhost:8000>.
 
-Drag the scene to orbit the camera and scroll to zoom. Use the year, orbit day, time-of-day, and speed controls to scrub or play the simulation. The camera controls at the lower-right reset or pause the slow camera orbit.
+Drag the scene to orbit the camera and scroll to zoom. Use the year, orbit day, time-of-day, and speed controls to scrub or play the simulation. The year slider extends its range as the simulation approaches its end, so there is no fixed year cap. The camera controls at the lower-right reset or pause the slow camera orbit.
 
 ## GitHub Pages
 

@@ -442,7 +442,7 @@ function setTime(nextTime) {
   const year = currentYear();
   const day = withinYear();
   const hour = currentHour();
-  if (year > Number(ui.yearRange.max) - 10) ui.yearRange.max = String(Math.min(100000, year + 100));
+  if (year > Number(ui.yearRange.max) - 10) ui.yearRange.max = String(year + 100);
   ui.yearRange.value = String(Math.min(Number(ui.yearRange.max), year));
   ui.dayRange.value = String(day);
   ui.hourRange.value = String(hour);
