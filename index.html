@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#080b13">
+    <meta name="description" content="An interactive 3D day and night tracker for an Earth-like planet orbiting a binary star system.">
+    <title>Kepler Simulation — Binary Sky</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="stylesheet" href="./src/kepler-simulation.css">
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+        }
+      }
+    </script>
+    <script type="module" src="./src/kepler-simulation.js"></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="universe" aria-label="Interactive three-dimensional binary star system">
+        <div class="universe-wash" aria-hidden="true"></div>
+        <canvas id="system-view" aria-label="Three-dimensional view of the binary stars, planet orbit, and moon"></canvas>
+
+        <header class="topbar">
+          <a class="brand" href="./" aria-label="Kepler Simulation home">
+            <span class="brand-mark" aria-hidden="true"><i></i><i></i><b></b></span>
+            <span class="brand-name">KEPLER <span>SIMULATION</span></span>
+          </a>
+          <div class="topbar-model"><span class="live-dot"></span> CIRCUMBINARY REFERENCE MODEL</div>
+          <a class="github-link" href="https://github.com/lttkiet/kepler-simulation" target="_blank" rel="noreferrer">SOURCE <span aria-hidden="true">↗</span></a>
+        </header>
+
+        <div class="scene-hud hud-left" aria-hidden="true">
+          <span class="hud-kicker">SYSTEM VIEW</span>
+          <span class="hud-caption">Drag to orbit <b>·</b> scroll to zoom</span>
+        </div>
+        <div class="scene-hud hud-right" aria-hidden="true">
+          <span class="hud-kicker">KEPLER-16 REFERENCE</span>
+          <span class="hud-caption">Terrestrial world · one natural moon</span>
+        </div>
+        <div class="object-label label-large" id="label-large">LARGE SUN <span>A</span></div>
+        <div class="object-label label-small" id="label-small">SMALL SUN <span>B</span></div>
+        <div class="object-label label-planet" id="label-planet">PLANET <span>HOMEWORLD</span></div>
+        <div class="object-label label-moon" id="label-moon">MOON <span>1.3× LUNAR DISTANCE</span></div>
+
+        <div class="view-tools" aria-label="Camera controls">
+          <button class="icon-button" id="view-home" type="button" aria-label="Reset camera view" title="Reset camera view">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5M6.5 10v8h11v-8M10 18v-5h4v5" /></svg>
+          </button>
+          <button class="icon-button" id="view-motion" type="button" aria-label="Pause camera movement" aria-pressed="false" title="Pause camera movement">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12M15 6v12" /></svg>
+          </button>
+        </div>
+
+        <section class="time-panel" aria-label="Simulation time controls">
+          <div class="time-heading">
+            <div>
+              <div class="section-kicker">ORBITAL CLOCK</div>
+              <div class="date-line"><span id="year-readout">YEAR 0000</span><i></i><span id="day-readout">DAY 000</span></div>
+            </div>
+            <div class="clock-readout"><span id="time-readout">00:00</span><small>LOCAL TIME</small></div>
+          </div>
+          <div class="time-controls">
+            <button class="play-button" id="play-toggle" type="button" aria-label="Play simulation" aria-pressed="false">
+              <svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z" /></svg>
+              <svg class="pause-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5h3v14H8zM14 5h3v14h-3z" /></svg>
+              <span id="play-text">PLAY</span>
+            </button>
+            <label class="speed-control">SPEED
+              <select id="speed-select" aria-label="Simulation speed">
+                <option value="0.25">¼×</option>
+                <option value="1" selected>1×</option>
+                <option value="10">10×</option>
+                <option value="60">60×</option>
+              </select>
+            </label>
+          </div>
+          <label class="range-row" for="year-range"><span>YEAR</span><output id="year-value">0</output>
+            <input id="year-range" type="range" min="0" max="1000" step="1" value="0">
+          </label>
+          <label class="range-row" for="day-range"><span>ORBIT DAY</span><output id="day-value">0.00</output>
+            <input id="day-range" type="range" min="0" max="228.776" step="0.01" value="0">
+          </label>
+          <label class="range-row" for="hour-range"><span>TIME OF DAY</span><output id="hour-value">00:00</output>
+            <input id="hour-range" type="range" min="0" max="23.99" step="0.01" value="0">
+          </label>
+          <div class="time-foot"><span>PLANETARY YEAR</span><span>228.776 DAYS</span></div>
+        </section>
+        <div class="loading-state" id="loading-state" role="status">Preparing the orbital model…</div>
+      </section>
+
+      <aside class="data-rail" aria-label="Current system conditions">
+        <section class="rail-heading">
+          <div class="section-kicker">LIVE OBSERVATION</div>
+          <h1>Two suns.<br>One turning world.</h1>
+          <p>Follow the light from the equator as the world circles its binary star.</p>
+        </section>
+
+        <section class="light-state" aria-live="polite">
+          <div class="state-mark"><span id="state-icon">◐</span></div>
+          <div><div class="section-kicker">SURFACE LIGHT</div><div class="state-name" id="light-state">TRUE NIGHT</div></div>
+          <div class="state-clock" id="state-clock">00:00</div>
+        </section>
+
+        <section class="observer-section">
+          <div class="section-heading"><span>AT THE EQUATOR</span><span>0° LAT</span></div>
+          <div class="sun-readout sun-a-row">
+            <span class="sun-symbol sun-a-symbol"></span>
+            <span class="sun-name">LARGE SUN <small>A</small></span>
+            <span class="sun-altitude" id="altitude-a">—</span>
+          </div>
+          <div class="altitude-track"><i id="track-a"></i><b id="horizon-a"></b></div>
+          <div class="sun-readout sun-b-row">
+            <span class="sun-symbol sun-b-symbol"></span>
+            <span class="sun-name">SMALL SUN <small>B</small></span>
+            <span class="sun-altitude" id="altitude-b">—</span>
+          </div>
+          <div class="altitude-track"><i id="track-b"></i><b id="horizon-b"></b></div>
+          <div class="sky-diagram" aria-label="Two suns moving above or below the observer's horizon">
+            <div class="sky-arc"></div><div class="sky-horizon"></div>
+            <span class="sky-orb sky-orb-a" id="sky-orb-a"></span>
+            <span class="sky-orb sky-orb-b" id="sky-orb-b"></span>
+            <span class="sky-horizon-label">LOCAL HORIZON</span>
+            <span class="sky-phase-label" id="phase-label">Both stars below horizon</span>
+          </div>
+        </section>
+
+        <section class="moon-section">
+          <div class="section-heading"><span>MOON PHASE</span><span id="moon-phase-name">—</span></div>
+          <div class="moon-readout">
+            <div class="moon-preview" id="moon-preview" aria-hidden="true"><div class="moon-disc"></div></div>
+            <div class="moon-details"><span class="moon-percent" id="moon-percent">—</span><span class="moon-subtitle">ILLUMINATED BY BOTH SUNS</span></div>
+          </div>
+          <div class="moon-meta"><span>ORBITAL PERIOD</span><b>40.5 DAYS*</b></div>
+          <div class="moon-meta"><span>MEAN DISTANCE</span><b>499,720 KM</b></div>
+        </section>
+
+        <section class="model-note">
+          <span class="note-mark">i</span>
+          <p>Orbits follow Keplerian reference elements. Body sizes and the moon's local orbit are enlarged for visibility.</p>
+        </section>
+        <footer class="rail-footer"><span>* PROVISIONAL MOON PERIOD</span><a href="./docs/tracker.md">MODEL NOTES <span aria-hidden="true">↗</span></a></footer>
+      </aside>
+    </main>
+  </body>
+</html>
