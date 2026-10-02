@@ -92,7 +92,6 @@ const starBLight = new THREE.PointLight('#f17868', 850, 145, 1.65);
 starALight.castShadow = true;
 starALight.shadow.mapSize.set(512, 512);
 scene.add(starALight, starBLight);
-scene.add(starALight.target, starBLight.target);
 
 const starField = makeStarField();
 scene.add(starField);
